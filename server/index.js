@@ -567,14 +567,13 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "RepoLens API"
+  });
+});
 
-    console.log(
-      `RepoLens server running on port ${PORT}`
-    );
-
-  }
-);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`RepoLens server running on port ${PORT}`);
+});
