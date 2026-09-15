@@ -24,7 +24,7 @@ export async function getRepositoryTree(owner, repo) {
 
 export async function getFileContent(owner, repo, path) {
   const response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${path}`
+    `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`
   );
 
   if (!response.ok) {
@@ -37,10 +37,30 @@ export async function getFileContent(owner, repo, path) {
     throw new Error(`${path} is not a file`);
   }
 
-  const content = atob(data.content.replace(/\n/g, ""));
+  if (!data.content) {
+    throw new Error(`No content available for: ${path}`);
+  }
+
+  const binaryString = atob(data.content.replace(/\n/g, ""));
+
+  const bytes = Uint8Array.from(binaryString, (char) =>
+    char.charCodeAt(0)
+  );
+
+  const content = new TextDecoder().decode(bytes);
 
   return {
     path: data.path,
     content
   };
+}
+
+export async function getMultipleFileContents(owner, repo, files) {
+  const results = await Promise.all(
+    files.map((file) =>
+      getFileContent(owner, repo, file.path)
+    )
+  );
+
+  return results;
 }

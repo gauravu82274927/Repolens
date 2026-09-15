@@ -1,7 +1,8 @@
 import { useState } from "react";
 import {
   getRepository,
-  getRepositoryTree
+  getRepositoryTree,
+  getMultipleFileContents
 } from "./services/github";
 
 import {
@@ -40,12 +41,22 @@ function App() {
       const filteredFiles = filterRepositoryTree(tree.tree);
       const importantFiles = selectImportantFiles(filteredFiles);
 
+      console.log("Total entries:", tree.tree.length);
       console.log("Relevant files:", filteredFiles.length);
       console.log("Important files:", importantFiles);
 
+      const fileContents = await getMultipleFileContents(
+        owner,
+        repoName,
+        importantFiles
+      );
+
+      console.log("Fetched file contents:", fileContents);
+
       setRepo({
         ...data,
-        tree: importantFiles
+        tree: importantFiles,
+        files: fileContents
       });
 
       console.log("Total entries:", tree.tree.length);
