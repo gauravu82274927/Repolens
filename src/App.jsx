@@ -1,6 +1,13 @@
 import { useState } from "react";
-import { getRepository, getRepositoryTree } from "./services/github";
-import { filterRepositoryTree } from "./services/analyzer";
+import {
+  getRepository,
+  getRepositoryTree
+} from "./services/github";
+
+import {
+  filterRepositoryTree,
+  selectImportantFiles
+} from "./services/analyzer";
 
 function App() {
   const [url, setUrl] = useState("");
@@ -31,6 +38,15 @@ function App() {
       console.log("Repository tree:", tree);
 
       const filteredFiles = filterRepositoryTree(tree.tree);
+      const importantFiles = selectImportantFiles(filteredFiles);
+
+      console.log("Relevant files:", filteredFiles.length);
+      console.log("Important files:", importantFiles);
+
+      setRepo({
+        ...data,
+        tree: importantFiles
+      });
 
       console.log("Total entries:", tree.tree.length);
       console.log("Relevant files:", filteredFiles.length);
