@@ -1,44 +1,46 @@
 export async function getRepository(owner, repo) {
   const response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}`
+    `http://localhost:3001/api/github/repository/${owner}/${repo}`
   );
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Repository not found");
+    throw new Error(data.error || "Could not fetch repository");
   }
 
-  return response.json();
+  return data;
 }
 
 export async function getRepositoryTree(owner, repo) {
   const response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`
+    `http://localhost:3001/api/github/tree/${owner}/${repo}`
   );
-
-  if (!response.ok) {
-    throw new Error("Could not fetch repository files");
-  }
-
-  return response.json();
-}
-
-export async function getFileContent(owner, repo, path) {
-  const response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`
-  );
-
-  if (!response.ok) {
-    throw new Error(`Could not fetch file: ${path}`);
-  }
 
   const data = await response.json();
 
-  if (data.type !== "file") {
-    throw new Error(`${path} is not a file`);
+  if (!response.ok) {
+    throw new Error(data.error || "Could not fetch repository files");
+  }
+
+  return data;
+}
+
+export async function getFileContent(owner, repo, file) {
+  const response = await fetch(
+    `http://localhost:3001/api/github/blob/${owner}/${repo}/${file.sha}`
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || `Could not fetch file: ${file.path}`
+    );
   }
 
   if (!data.content) {
-    throw new Error(`No content available for: ${path}`);
+    throw new Error(`No content available for: ${file.path}`);
   }
 
   const binaryString = atob(data.content.replace(/\n/g, ""));
@@ -50,7 +52,7 @@ export async function getFileContent(owner, repo, path) {
   const content = new TextDecoder().decode(bytes);
 
   return {
-    path: data.path,
+    path: file.path,
     content
   };
 }
@@ -58,7 +60,7 @@ export async function getFileContent(owner, repo, path) {
 export async function getMultipleFileContents(owner, repo, files) {
   const results = await Promise.all(
     files.map((file) =>
-      getFileContent(owner, repo, file.path)
+      getFileContent(owner, repo, file)
     )
   );
 

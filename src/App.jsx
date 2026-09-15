@@ -10,6 +10,10 @@ import {
   selectImportantFiles
 } from "./services/analyzer";
 
+import { 
+  buildRepositoryContext 
+} from "./services/ai";
+
 function App() {
   const [url, setUrl] = useState("");
   const [repo, setRepo] = useState(null);
@@ -20,13 +24,22 @@ function App() {
     setRepo(null);
 
     try {
-      const parts = url
-        .replace("https://github.com/", "")
-        .replace("http://github.com/", "")
-        .split("/");
+      const githubUrl = new URL(url.trim());
+
+      if (githubUrl.hostname !== "github.com") {
+        throw new Error("Please enter a valid GitHub repository URL");
+      }
+
+      const parts = githubUrl.pathname
+        .split("/")
+        .filter(Boolean);
 
       const owner = parts[0];
       const repoName = parts[1];
+
+      if (!owner || !repoName) {
+        throw new Error("Please enter a valid GitHub repository URL");
+      }
 
       if (!owner || !repoName) {
         throw new Error("Please enter a valid GitHub repository URL");
@@ -51,21 +64,17 @@ function App() {
         importantFiles
       );
 
+      const repositoryContext = buildRepositoryContext(fileContents);
+
+      console.log("Repository context:");
+      console.log(repositoryContext);
+
       console.log("Fetched file contents:", fileContents);
 
       setRepo({
         ...data,
         tree: importantFiles,
         files: fileContents
-      });
-
-      console.log("Total entries:", tree.tree.length);
-      console.log("Relevant files:", filteredFiles.length);
-      console.log("Filtered files:", filteredFiles);
-
-      setRepo({
-        ...data,
-        tree: filteredFiles
       });
 
     } catch (err) {
