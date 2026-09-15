@@ -10,15 +10,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3001;
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
-// --------------------------------------------------
-// GitHub API helper
-// --------------------------------------------------
+/* --------------------------------------------------
+   BASIC ROUTES
+-------------------------------------------------- */
+
+app.get("/", (req, res) => {
+  res.json({
+    name: "RepoLens API",
+    status: "running"
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "RepoLens API"
+  });
+});
+
+/* --------------------------------------------------
+   GITHUB API
+-------------------------------------------------- */
 
 async function githubRequest(url) {
   const response = await fetch(url, {
@@ -42,31 +60,7 @@ async function githubRequest(url) {
   return data;
 }
 
-// --------------------------------------------------
-// Health check
-// --------------------------------------------------
-
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    service: "RepoLens API"
-  });
-});
-
-// --------------------------------------------------
-// Root route
-// --------------------------------------------------
-
-app.get("/", (req, res) => {
-  res.json({
-    name: "RepoLens API",
-    status: "running"
-  });
-});
-
-// --------------------------------------------------
-// GitHub repository
-// --------------------------------------------------
+/* Repository metadata */
 
 app.get(
   "/api/github/repository/:owner/:repo",
@@ -89,9 +83,7 @@ app.get(
   }
 );
 
-// --------------------------------------------------
-// GitHub repository tree
-// --------------------------------------------------
+/* Repository tree */
 
 app.get(
   "/api/github/tree/:owner/:repo",
@@ -114,9 +106,7 @@ app.get(
   }
 );
 
-// --------------------------------------------------
-// GitHub file/blob
-// --------------------------------------------------
+/* File contents */
 
 app.get(
   "/api/github/blob/:owner/:repo/:sha",
@@ -139,9 +129,134 @@ app.get(
   }
 );
 
-// --------------------------------------------------
-// Gemini AI analysis
-// --------------------------------------------------
+/* --------------------------------------------------
+   GEMINI CONFIGURATION
+-------------------------------------------------- */
+
+const GEMINI_MODELS = [
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite"
+];
+
+const RETRY_DELAYS = [
+  2000,
+  5000
+];
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/*
+  Gemini can temporarily return 503 / UNAVAILABLE
+  when the model is experiencing high demand.
+
+  We retry those errors and then switch to a
+  fallback model.
+*/
+
+function isRetryableGeminiError(error) {
+  const message = String(
+    error?.message || error || ""
+  ).toUpperCase();
+
+  const code = String(
+    error?.code ||
+    error?.status ||
+    error?.error?.code ||
+    error?.error?.status ||
+    ""
+  ).toUpperCase();
+
+  return (
+    message.includes("503") ||
+    message.includes("UNAVAILABLE") ||
+    code.includes("503") ||
+    code.includes("UNAVAILABLE")
+  );
+}
+
+async function generateGeminiAnalysis(
+  contents,
+  config
+) {
+  let lastError = null;
+
+  for (const model of GEMINI_MODELS) {
+    console.log(
+      `Trying Gemini model: ${model}`
+    );
+
+    for (
+      let attempt = 0;
+      attempt <= RETRY_DELAYS.length;
+      attempt++
+    ) {
+      try {
+        const response =
+          await gemini.models.generateContent({
+            model,
+            contents,
+            config
+          });
+
+        console.log(
+          `Gemini analysis succeeded using ${model}`
+        );
+
+        return response;
+      } catch (error) {
+        lastError = error;
+
+        console.error(
+          `Gemini error using ${model}, attempt ${
+            attempt + 1
+          }:`,
+          error?.message || error
+        );
+
+        const retryable =
+          isRetryableGeminiError(error);
+
+        if (!retryable) {
+          throw error;
+        }
+
+        /*
+          If there are retries remaining,
+          wait before trying again.
+        */
+
+        if (
+          attempt < RETRY_DELAYS.length
+        ) {
+          const delay =
+            RETRY_DELAYS[attempt];
+
+          console.log(
+            `Retrying ${model} in ${
+              delay / 1000
+            } seconds...`
+          );
+
+          await sleep(delay);
+        }
+      }
+    }
+
+    console.log(
+      `Switching from ${model} to fallback model...`
+    );
+  }
+
+  throw lastError;
+}
+
+/* --------------------------------------------------
+   AI ANALYSIS
+-------------------------------------------------- */
 
 app.post("/api/analyze", async (req, res) => {
   try {
@@ -153,10 +268,7 @@ app.post("/api/analyze", async (req, res) => {
       });
     }
 
-    const response = await gemini.models.generateContent({
-      model: "gemini-3.6-flash",
-
-      contents: `
+    const prompt = `
 You are RepoLens, an expert software engineer who analyzes GitHub repositories.
 
 Analyze ONLY the repository files provided below.
@@ -177,99 +289,125 @@ Return a structured analysis containing:
 Repository files:
 
 ${repositoryContext}
-      `,
+`;
 
-      config: {
-        responseMimeType: "application/json",
+    const config = {
+      responseMimeType: "application/json",
 
-        responseSchema: {
-          type: "object",
+      responseSchema: {
+        type: "object",
 
-          properties: {
-            summary: {
+        properties: {
+          summary: {
+            type: "string"
+          },
+
+          techStack: {
+            type: "array",
+            items: {
               type: "string"
-            },
-
-            techStack: {
-              type: "array",
-              items: {
-                type: "string"
-              }
-            },
-
-            architecture: {
-              type: "string"
-            },
-
-            importantFiles: {
-              type: "array",
-              items: {
-                type: "object",
-
-                properties: {
-                  path: {
-                    type: "string"
-                  },
-
-                  reason: {
-                    type: "string"
-                  }
-                },
-
-                required: [
-                  "path",
-                  "reason"
-                ]
-              }
-            },
-
-            entryPoint: {
-              type: "string"
-            },
-
-            improvements: {
-              type: "array",
-              items: {
-                type: "string"
-              }
             }
           },
 
-          required: [
-            "summary",
-            "techStack",
-            "architecture",
-            "importantFiles",
-            "entryPoint",
-            "improvements"
-          ]
-        }
-      }
-    });
+          architecture: {
+            type: "string"
+          },
 
-    const analysis = JSON.parse(response.text);
+          importantFiles: {
+            type: "array",
+
+            items: {
+              type: "object",
+
+              properties: {
+                path: {
+                  type: "string"
+                },
+
+                reason: {
+                  type: "string"
+                }
+              },
+
+              required: [
+                "path",
+                "reason"
+              ]
+            }
+          },
+
+          entryPoint: {
+            type: "string"
+          },
+
+          improvements: {
+            type: "array",
+
+            items: {
+              type: "string"
+            }
+          }
+        },
+
+        required: [
+          "summary",
+          "techStack",
+          "architecture",
+          "importantFiles",
+          "entryPoint",
+          "improvements"
+        ]
+      }
+    };
+
+    const response =
+      await generateGeminiAnalysis(
+        prompt,
+        config
+      );
+
+    if (!response?.text) {
+      throw new Error(
+        "Gemini returned an empty response"
+      );
+    }
+
+    const analysis = JSON.parse(
+      response.text
+    );
 
     res.json({
       analysis
     });
-
   } catch (error) {
     console.error(
       "Gemini analysis error:",
       error
     );
 
+    /*
+      Give the frontend a useful error instead
+      of exposing a huge Gemini error object.
+    */
+
+    if (isRetryableGeminiError(error)) {
+      return res.status(503).json({
+        error:
+          "AI analysis is temporarily unavailable. Gemini is experiencing high demand. Please try again in a moment."
+      });
+    }
+
     res.status(500).json({
       error:
-        error.message ||
+        error?.message ||
         "AI analysis failed"
     });
   }
 });
 
-// --------------------------------------------------
-// 404 handler
-// --------------------------------------------------
+/* --------------------------------------------------
+   404 HANDLER
+-------------------------------------------------- */
 
 app.use((req, res) => {
   res.status(404).json({
@@ -278,12 +416,16 @@ app.use((req, res) => {
   });
 });
 
-// --------------------------------------------------
-// Start server
-// --------------------------------------------------
+/* --------------------------------------------------
+   START SERVER
+-------------------------------------------------- */
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `RepoLens server running on port ${PORT}`
-  );
-});
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `RepoLens server running on port ${PORT}`
+    );
+  }
+);
