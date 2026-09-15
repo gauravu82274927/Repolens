@@ -12,7 +12,7 @@ app.use(express.json());
 
 
 const PORT =
-  process.env.PORT || 3001;
+  process.env.PORT || 10000;
 
 
 const gemini =
@@ -559,6 +559,13 @@ app.get(
 /* =========================================================
    SERVER
 ========================================================= */
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "RepoLens API"
+  });
+});
 
 app.listen(
   PORT,
