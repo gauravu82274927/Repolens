@@ -1,4 +1,6 @@
 import { useState } from "react";
+import "./App.css";
+
 import {
   getRepository,
   getRepositoryTree,
@@ -10,20 +12,22 @@ import {
   selectImportantFiles
 } from "./services/analyzer";
 
-import { 
-  buildRepositoryContext 
+import {
+  buildRepositoryContext
 } from "./services/ai";
 
 function App() {
   const [url, setUrl] = useState("");
   const [repo, setRepo] = useState(null);
   const [error, setError] = useState("");
-  const [analysis, setAnalysis] = useState("");
+  const [analysis, setAnalysis] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   async function handleAnalyze() {
     setError("");
     setRepo(null);
-    setAnalysis("");
+    setAnalysis(null);
+    setLoading(true);
 
     try {
       const githubUrl = new URL(url.trim());
@@ -38,10 +42,6 @@ function App() {
 
       const owner = parts[0];
       const repoName = parts[1];
-
-      if (!owner || !repoName) {
-        throw new Error("Please enter a valid GitHub repository URL");
-      }
 
       if (!owner || !repoName) {
         throw new Error("Please enter a valid GitHub repository URL");
@@ -66,7 +66,8 @@ function App() {
         importantFiles
       );
 
-      const repositoryContext = buildRepositoryContext(fileContents);
+      const repositoryContext =
+        buildRepositoryContext(fileContents);
 
       console.log("Repository context:");
       console.log(repositoryContext);
@@ -96,7 +97,10 @@ function App() {
 
       setAnalysis(aiData.analysis);
 
-      console.log("Fetched file contents:", fileContents);
+      console.log(
+        "Fetched file contents:",
+        fileContents
+      );
 
       setRepo({
         ...data,
@@ -106,60 +110,234 @@ function App() {
 
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div>
-      <h1>RepoLens</h1>
+    <div className="app">
 
-      <p>Understand any GitHub repository with AI.</p>
+      <header className="hero">
+        <h1>RepoLens</h1>
 
-      <input
-        type="text"
-        placeholder="Paste a GitHub repository URL"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-      />
+        <p>
+          Understand any GitHub repository with AI.
+        </p>
 
-      <button onClick={handleAnalyze}>
-        Analyze Repository
-      </button>
+        <div className="search-box">
+          <input
+            type="text"
+            placeholder="Paste a GitHub repository URL"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            disabled={loading}
+          />
 
-      {error && <p>{error}</p>}
+          <button
+            onClick={handleAnalyze}
+            disabled={loading}
+          >
+            {loading
+              ? "Analyzing Repository..."
+              : "Analyze Repository"}
+          </button>
+        </div>
+      </header>
+
+      {error && (
+        <div className="error">
+          {error}
+        </div>
+      )}
 
       {repo && (
-        <div>
-          <h2>{repo.name}</h2>
-          <p>{repo.description}</p>
+  <section className="repository-card">
 
-          <p>
-            Stars: {repo.stargazers_count}
-          </p>
+    <div className="repository-header">
+      <div>
+        <h2>{repo.name}</h2>
 
-          <p>
-            Language: {repo.language || "Not specified"}
-          </p>
+        <p className="description">
+          {repo.description ||
+            "No description available."}
+        </p>
+      </div>
 
-          <p>
-            {repo.html_url}
-          </p>
-        </div>
-      )}
+      <a
+        href={repo.html_url}
+        target="_blank"
+        rel="noreferrer"
+      >
+        View on GitHub
+      </a>
+    </div>
+
+    <div className="repo-stats">
+
+      <div className="stat">
+        <span className="stat-value">
+          {repo.stargazers_count}
+        </span>
+
+        <span className="stat-label">
+          Stars
+        </span>
+      </div>
+
+      <div className="stat">
+        <span className="stat-value">
+          {repo.forks_count}
+        </span>
+
+        <span className="stat-label">
+          Forks
+        </span>
+      </div>
+
+      <div className="stat">
+        <span className="stat-value">
+          {repo.open_issues_count}
+        </span>
+
+        <span className="stat-label">
+          Issues / PRs
+        </span>
+      </div>
+
+      <div className="stat">
+        <span className="stat-value">
+          {repo.language || "N/A"}
+        </span>
+
+        <span className="stat-label">
+          Language
+        </span>
+      </div>
+
+      <div className="stat">
+        <span className="stat-value">
+          {repo.size
+            ? `${(repo.size / 1024).toFixed(1)} MB`
+            : "N/A"}
+        </span>
+
+        <span className="stat-label">
+          Repository Size
+        </span>
+      </div>
+
+    </div>
+
+  </section>
+)}
+
       {analysis && (
-        <div>
-          <h2>AI Analysis</h2>
+        <main className="analysis">
 
-          <pre
-            style={{
-              whiteSpace: "pre-wrap",
-              textAlign: "left"
-            }}
-          >
-            {analysis}
-          </pre>
-        </div>
+          <h2 className="analysis-title">
+            Repository Analysis
+          </h2>
+
+          {/* Summary */}
+
+          <section className="card summary-card">
+            <h3>Summary</h3>
+
+            <p>
+              {analysis.summary}
+            </p>
+          </section>
+
+          {/* Tech Stack + Entry Point */}
+
+          <div className="two-column">
+
+            <section className="card">
+              <h3>Tech Stack</h3>
+
+              <div className="tech-list">
+                {analysis.techStack.map(
+                  (technology, index) => (
+                    <span
+                      className="tech-tag"
+                      key={index}
+                    >
+                      {technology}
+                    </span>
+                  )
+                )}
+              </div>
+            </section>
+
+            <section className="card">
+              <h3>Entry Point</h3>
+
+              <p>
+                {analysis.entryPoint}
+              </p>
+            </section>
+
+          </div>
+
+          {/* Architecture */}
+
+          <section className="card">
+            <h3>Architecture</h3>
+
+            <p>
+              {analysis.architecture}
+            </p>
+          </section>
+
+          {/* Important Files */}
+
+          <section className="card">
+            <h3>Important Files</h3>
+
+            <div className="file-list">
+
+              {analysis.importantFiles.map(
+                (file, index) => (
+                  <div
+                    className="file-item"
+                    key={index}
+                  >
+                    <code>
+                      {file.path}
+                    </code>
+
+                    <p>
+                      {file.reason}
+                    </p>
+                  </div>
+                )
+              )}
+
+            </div>
+          </section>
+
+          {/* Suggested Improvements */}
+
+          <section className="card improvements-card">
+            <h3>
+              Suggested Improvements
+            </h3>
+
+            <ol>
+              {analysis.improvements.map(
+                (improvement, index) => (
+                  <li key={index}>
+                    {improvement}
+                  </li>
+                )
+              )}
+            </ol>
+          </section>
+
+        </main>
       )}
+
     </div>
   );
 }

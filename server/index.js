@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
@@ -12,8 +12,8 @@ app.use(express.json());
 
 const PORT = 3001;
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
 });
 
 async function githubRequest(url) {
@@ -90,58 +90,109 @@ app.post("/api/analyze", async (req, res) => {
       });
     }
 
-    const response = await openai.responses.create({
-      model: "gpt-5.6-luna",
-      input: [
-        {
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text: `
-You are RepoLens, an expert software engineer who explains GitHub repositories.
+    const response = await gemini.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: `
+You are RepoLens, an expert software engineer who analyzes GitHub repositories.
 
-Analyze ONLY the repository files provided by the user.
+Analyze ONLY the repository files provided below.
 
-Do not invent technologies, architecture, features, or files that are not supported by the provided code.
+Do not invent technologies, architecture, features, files, or behavior that cannot be supported by the provided files.
 
-Return a clear analysis suitable for a developer who wants to quickly understand the repository.
-              `
-            }
-          ]
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `
-Analyze this GitHub repository.
+If information is unavailable, explicitly say so.
 
-Provide:
-1. A concise project summary.
-2. The technologies and frameworks used.
-3. The overall architecture and how the major parts interact.
-4. The most important files and why they matter.
-5. The likely entry point of the application.
-6. Three useful improvements a developer could make.
+Return a structured analysis containing:
+
+- summary: A concise explanation of what the project is.
+- techStack: Technologies, frameworks, languages, tools, and libraries actually supported by the files.
+- architecture: How the major parts of the repository interact.
+- importantFiles: Important files and why they matter.
+- entryPoint: The most likely application or development entry point.
+- improvements: Exactly 3 practical improvements supported by the repository.
 
 Repository files:
 
 ${repositoryContext}
-              `
+      `,
+
+      config: {
+        responseMimeType: "application/json",
+
+        responseSchema: {
+          type: "object",
+
+          properties: {
+            summary: {
+              type: "string"
+            },
+
+            techStack: {
+              type: "array",
+              items: {
+                type: "string"
+              }
+            },
+
+            architecture: {
+              type: "string"
+            },
+
+            importantFiles: {
+              type: "array",
+
+              items: {
+                type: "object",
+
+                properties: {
+                  path: {
+                    type: "string"
+                  },
+
+                  reason: {
+                    type: "string"
+                  }
+                },
+
+                required: [
+                  "path",
+                  "reason"
+                ]
+              }
+            },
+
+            entryPoint: {
+              type: "string"
+            },
+
+            improvements: {
+              type: "array",
+
+              items: {
+                type: "string"
+              }
             }
+          },
+
+          required: [
+            "summary",
+            "techStack",
+            "architecture",
+            "importantFiles",
+            "entryPoint",
+            "improvements"
           ]
         }
-      ]
+      }
     });
 
+    const analysis = JSON.parse(response.text);
+
     res.json({
-      analysis: response.output_text
+      analysis
     });
 
   } catch (error) {
-    console.error("AI analysis error:", error);
+    console.error("Gemini analysis error:", error);
 
     res.status(500).json({
       error: error.message || "AI analysis failed"
