@@ -18,10 +18,12 @@ function App() {
   const [url, setUrl] = useState("");
   const [repo, setRepo] = useState(null);
   const [error, setError] = useState("");
+  const [analysis, setAnalysis] = useState("");
 
   async function handleAnalyze() {
     setError("");
     setRepo(null);
+    setAnalysis("");
 
     try {
       const githubUrl = new URL(url.trim());
@@ -68,6 +70,31 @@ function App() {
 
       console.log("Repository context:");
       console.log(repositoryContext);
+
+      const aiResponse = await fetch(
+        "http://localhost:3001/api/analyze",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            repositoryContext
+          })
+        }
+      );
+
+      const aiData = await aiResponse.json();
+
+      if (!aiResponse.ok) {
+        throw new Error(
+          aiData.error || "AI analysis failed"
+        );
+      }
+
+      console.log("AI analysis:", aiData.analysis);
+
+      setAnalysis(aiData.analysis);
 
       console.log("Fetched file contents:", fileContents);
 
@@ -117,6 +144,20 @@ function App() {
           <p>
             {repo.html_url}
           </p>
+        </div>
+      )}
+      {analysis && (
+        <div>
+          <h2>AI Analysis</h2>
+
+          <pre
+            style={{
+              whiteSpace: "pre-wrap",
+              textAlign: "left"
+            }}
+          >
+            {analysis}
+          </pre>
         </div>
       )}
     </div>
