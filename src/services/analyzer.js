@@ -9,6 +9,7 @@ const IGNORED_DIRECTORIES = [
   "vendor"
 ];
 
+
 const IMPORTANT_FILES = [
   "README.md",
   "package.json",
@@ -26,6 +27,7 @@ const IMPORTANT_FILES = [
   "App.js"
 ];
 
+
 const SOURCE_EXTENSIONS = [
   ".js",
   ".jsx",
@@ -42,78 +44,167 @@ const SOURCE_EXTENSIONS = [
   ".kt"
 ];
 
+
 export function filterRepositoryTree(tree) {
+
   return tree.filter((item) => {
+
     if (item.type !== "blob") {
       return false;
     }
 
-    const pathParts = item.path.split("/");
 
-    const isIgnored = IGNORED_DIRECTORIES.some((directory) =>
-      pathParts.includes(directory)
-    );
+    const pathParts =
+      item.path.split("/");
+
+
+    const isIgnored =
+      IGNORED_DIRECTORIES.some(
+        (directory) =>
+          pathParts.includes(directory)
+      );
+
 
     if (isIgnored) {
       return false;
     }
 
-    if (IMPORTANT_FILES.includes(item.path)) {
+
+    if (
+      IMPORTANT_FILES.includes(
+        item.path
+      )
+    ) {
       return true;
     }
 
-    return SOURCE_EXTENSIONS.some((extension) =>
-      item.path.endsWith(extension)
+
+    return SOURCE_EXTENSIONS.some(
+      (extension) =>
+        item.path.endsWith(
+          extension
+        )
     );
+
   });
+
 }
 
 
-export function selectImportantFiles(files, limit = 15) {
-  const scoredFiles = files.map((file) => {
-    let score = 0;
-    const path = file.path.toLowerCase();
+export function selectImportantFiles(
+  files,
+  limit = 15
+) {
 
-    if (path === "readme.md") score += 100;
-    if (path === "package.json") score += 95;
-    if (path === "requirements.txt") score += 95;
-    if (path === "pyproject.toml") score += 95;
+  const scoredFiles =
+    files.map((file) => {
 
-    if (
-      path.includes("src/app.") ||
-      path.includes("src/main.") ||
-      path.includes("src/index.")
-    ) {
-      score += 80;
-    }
+      let score = 0;
 
-    if (
-      path.includes("/services/") ||
-      path.includes("/controllers/") ||
-      path.includes("/routes/") ||
-      path.includes("/api/") ||
-      path.includes("/models/")
-    ) {
-      score += 60;
-    }
+      const path =
+        file.path.toLowerCase();
 
-    if (
-      path.includes("config") ||
-      path.includes("vite.config") ||
-      path.includes("webpack.config")
-    ) {
-      score += 40;
-    }
 
-    score += Math.max(0, 20 - path.split("/").length * 2);
+      if (
+        path === "readme.md"
+      ) {
+        score += 100;
+      }
 
-    return {
-      ...file,
-      score
-    };
-  });
+
+      if (
+        path === "package.json"
+      ) {
+        score += 95;
+      }
+
+
+      if (
+        path === "requirements.txt"
+      ) {
+        score += 95;
+      }
+
+
+      if (
+        path === "pyproject.toml"
+      ) {
+        score += 95;
+      }
+
+
+      if (
+        path.includes(
+          "src/app."
+        ) ||
+        path.includes(
+          "src/main."
+        ) ||
+        path.includes(
+          "src/index."
+        )
+      ) {
+        score += 80;
+      }
+
+
+      if (
+        path.includes(
+          "/services/"
+        ) ||
+        path.includes(
+          "/controllers/"
+        ) ||
+        path.includes(
+          "/routes/"
+        ) ||
+        path.includes(
+          "/api/"
+        ) ||
+        path.includes(
+          "/models/"
+        )
+      ) {
+        score += 60;
+      }
+
+
+      if (
+        path.includes(
+          "config"
+        ) ||
+        path.includes(
+          "vite.config"
+        ) ||
+        path.includes(
+          "webpack.config"
+        )
+      ) {
+        score += 40;
+      }
+
+
+      score += Math.max(
+        0,
+        20 -
+          path.split("/").length *
+            2
+      );
+
+
+      return {
+        ...file,
+        score
+      };
+
+    });
+
 
   return scoredFiles
-    .sort((a, b) => b.score - a.score)
+    .sort(
+      (a, b) =>
+        b.score - a.score
+    )
     .slice(0, limit);
+
 }

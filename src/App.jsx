@@ -17,11 +17,274 @@ import {
 } from "./services/ai";
 
 
-/*
- * REVEAL ANIMATION
- */
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:3001";
 
-function Reveal({ children, className = "" }) {
+  function ParticleField() {
+  const canvasRef = useRef(null);
+  const mouseRef = useRef({
+    x: -1000,
+    y: -1000
+  });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    let animationFrame;
+
+    const particles = [];
+
+    const PARTICLE_COUNT = 220;
+    const REPULSION_RADIUS = 110;
+    const RETURN_SPEED = 0.025;
+
+    function resizeCanvas() {
+      const dpr =
+        window.devicePixelRatio || 1;
+
+      canvas.width =
+        window.innerWidth * dpr;
+
+      canvas.height =
+        window.innerHeight * dpr;
+
+      canvas.style.width =
+        `${window.innerWidth}px`;
+
+      canvas.style.height =
+        `${window.innerHeight}px`;
+
+      ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+      );
+    }
+
+
+    function createParticles() {
+      particles.length = 0;
+
+      for (
+        let i = 0;
+        i < PARTICLE_COUNT;
+        i++
+      ) {
+        const x =
+          Math.random() *
+          window.innerWidth;
+
+        const y =
+          Math.random() *
+          window.innerHeight;
+
+        particles.push({
+          x,
+          y,
+
+          originalX: x,
+          originalY: y,
+
+          vx: 0,
+          vy: 0,
+
+          size:
+            Math.random() * 1.5 +
+            0.5,
+
+          opacity:
+            Math.random() * 0.45 +
+            0.2
+        });
+      }
+    }
+
+
+    function handleMouseMove(event) {
+      mouseRef.current = {
+        x: event.clientX,
+        y: event.clientY
+      };
+    }
+
+
+    function handleMouseLeave() {
+      mouseRef.current = {
+        x: -1000,
+        y: -1000
+      };
+    }
+
+
+    function animate() {
+      ctx.clearRect(
+        0,
+        0,
+        window.innerWidth,
+        window.innerHeight
+      );
+
+
+      const mouse =
+        mouseRef.current;
+
+
+      particles.forEach(
+        (particle) => {
+
+          const dx =
+            particle.x - mouse.x;
+
+          const dy =
+            particle.y - mouse.y;
+
+          const distance =
+            Math.sqrt(
+              dx * dx +
+              dy * dy
+            );
+
+
+          if (
+            distance <
+            REPULSION_RADIUS
+          ) {
+
+            const force =
+              (REPULSION_RADIUS -
+                distance) /
+              REPULSION_RADIUS;
+
+            const angle =
+              Math.atan2(
+                dy,
+                dx
+              );
+
+            particle.vx +=
+              Math.cos(angle) *
+              force *
+              0.8;
+
+            particle.vy +=
+              Math.sin(angle) *
+              force *
+              0.8;
+          }
+
+
+          particle.vx *= 0.92;
+          particle.vy *= 0.92;
+
+
+          particle.x +=
+            particle.vx;
+
+          particle.y +=
+            particle.vy;
+
+
+          particle.x +=
+            (particle.originalX -
+              particle.x) *
+            RETURN_SPEED;
+
+          particle.y +=
+            (particle.originalY -
+              particle.y) *
+            RETURN_SPEED;
+
+
+          ctx.beginPath();
+
+          ctx.arc(
+            particle.x,
+            particle.y,
+            particle.size,
+            0,
+            Math.PI * 2
+          );
+
+          ctx.fillStyle =
+            `rgba(255, 255, 255, ${particle.opacity})`;
+
+          ctx.fill();
+
+        }
+      );
+
+
+      animationFrame =
+        requestAnimationFrame(
+          animate
+        );
+    }
+
+
+    resizeCanvas();
+    createParticles();
+    animate();
+
+
+    window.addEventListener(
+      "resize",
+      () => {
+        resizeCanvas();
+        createParticles();
+      }
+    );
+
+    window.addEventListener(
+      "mousemove",
+      handleMouseMove
+    );
+
+    window.addEventListener(
+      "mouseleave",
+      handleMouseLeave
+    );
+
+
+    return () => {
+      cancelAnimationFrame(
+        animationFrame
+      );
+
+      window.removeEventListener(
+        "mousemove",
+        handleMouseMove
+      );
+
+      window.removeEventListener(
+        "mouseleave",
+        handleMouseLeave
+      );
+    };
+
+  }, []);
+
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="particle-field"
+      aria-hidden="true"
+    />
+  );
+}
+
+function Reveal({
+  children,
+  className = ""
+}) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -29,21 +292,26 @@ function Reveal({ children, className = "" }) {
 
     if (!element) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          element.classList.add("reveal-visible");
-          observer.unobserve(element);
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            element.classList.add(
+              "reveal-visible"
+            );
+
+            observer.unobserve(element);
+          }
+        },
+        {
+          threshold: 0.08
         }
-      },
-      {
-        threshold: 0.08
-      }
-    );
+      );
 
     observer.observe(element);
 
-    return () => observer.disconnect();
+    return () =>
+      observer.disconnect();
   }, []);
 
   return (
@@ -57,112 +325,28 @@ function Reveal({ children, className = "" }) {
 }
 
 
-/*
- * STATIC PARTICLE FIELD
- *
- * Particles are distributed across the entire viewport.
- * They do NOT follow the cursor.
- * The cursor only repels nearby particles.
- */
+function App() {
+  const [url, setUrl] = useState("");
+  const [repo, setRepo] = useState(null);
+  const [error, setError] = useState("");
+  const [analysis, setAnalysis] =
+    useState(null);
+  const [loading, setLoading] =
+    useState(false);
 
-function ParticleField() {
-  const canvasRef = useRef(null);
+  const [mousePosition, setMousePosition] =
+    useState({
+      x: 50,
+      y: 30
+    });
+
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-
-    if (!ctx) return;
-
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-
-    const mouse = {
-      x: -1000,
-      y: -1000,
-      active: false
-    };
-
-    const particles = [];
-
-    const PARTICLE_COUNT = Math.min(
-      220,
-      Math.floor((width * height) / 6500)
-    );
-
-    function resize() {
-      width = window.innerWidth;
-      height = window.innerHeight;
-
-      const dpr = Math.min(
-        window.devicePixelRatio || 1,
-        2
-      );
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-
-      ctx.setTransform(
-        dpr,
-        0,
-        0,
-        dpr,
-        0,
-        0
-      );
-    }
-
-    resize();
-
-    /*
-     * Create particles across the whole page.
-     */
-
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-
-        baseX: 0,
-        baseY: 0,
-
-        vx: 0,
-        vy: 0,
-
-        radius:
-          Math.random() < 0.82
-            ? 0.7 + Math.random() * 0.8
-            : 1.4 + Math.random() * 1.2,
-
-        opacity:
-          0.15 + Math.random() * 0.55
-      });
-
-      particles[i].baseX =
-        particles[i].x;
-
-      particles[i].baseY =
-        particles[i].y;
-    }
-
-    /*
-     * Mouse movement.
-     */
-
     function handleMouseMove(event) {
-      mouse.x = event.clientX;
-      mouse.y = event.clientY;
-      mouse.active = true;
-    }
-
-    function handleMouseLeave() {
-      mouse.active = false;
+      setMousePosition({
+        x: event.clientX,
+        y: event.clientY
+      });
     }
 
     window.addEventListener(
@@ -170,247 +354,14 @@ function ParticleField() {
       handleMouseMove
     );
 
-    document.addEventListener(
-      "mouseleave",
-      handleMouseLeave
-    );
-
-    /*
-     * Draw particles.
-     */
-
-    function draw() {
-      ctx.clearRect(
-        0,
-        0,
-        width,
-        height
-      );
-
-      particles.forEach((particle) => {
-
-        /*
-         * Distance from cursor.
-         */
-
-        const dx =
-          particle.x - mouse.x;
-
-        const dy =
-          particle.y - mouse.y;
-
-        const distance =
-          Math.sqrt(
-            dx * dx +
-            dy * dy
-          );
-
-        /*
-         * Radius of the repulsion field.
-         */
-
-        const REPULSION_RADIUS = 110;
-
-        if (
-          mouse.active &&
-          distance < REPULSION_RADIUS
-        ) {
-          const force =
-            (REPULSION_RADIUS - distance) /
-            REPULSION_RADIUS;
-
-          const angle =
-            Math.atan2(dy, dx);
-
-          /*
-           * Push particle away
-           * from cursor.
-           */
-
-          particle.vx +=
-            Math.cos(angle) *
-            force *
-            1.8;
-
-          particle.vy +=
-            Math.sin(angle) *
-            force *
-            1.8;
-        }
-
-        /*
-         * Slowly return particles
-         * to their original positions.
-         */
-
-        particle.vx +=
-          (particle.baseX - particle.x) *
-          0.0025;
-
-        particle.vy +=
-          (particle.baseY - particle.y) *
-          0.0025;
-
-        /*
-         * Friction.
-         */
-
-        particle.vx *= 0.88;
-        particle.vy *= 0.88;
-
-        /*
-         * Move particle.
-         */
-
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-
-        /*
-         * Draw.
-         */
-
-        ctx.beginPath();
-
-        ctx.arc(
-          particle.x,
-          particle.y,
-          particle.radius,
-          0,
-          Math.PI * 2
-        );
-
-        ctx.fillStyle =
-          `rgba(255, 255, 255, ${particle.opacity})`;
-
-        ctx.fill();
-      });
-
-      requestAnimationFrame(draw);
-    }
-
-    const animationFrame =
-      requestAnimationFrame(draw);
-
-    /*
-     * Resize.
-     */
-
-    window.addEventListener(
-      "resize",
-      resize
-    );
-
-    /*
-     * Cleanup.
-     */
-
     return () => {
       window.removeEventListener(
         "mousemove",
         handleMouseMove
       );
-
-      document.removeEventListener(
-        "mouseleave",
-        handleMouseLeave
-      );
-
-      window.removeEventListener(
-        "resize",
-        resize
-      );
-
-      cancelAnimationFrame(
-        animationFrame
-      );
     };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="particle-field"
-      aria-hidden="true"
-    />
-  );
-}
-
-
-/*
- * APP
- */
-
-function App() {
-  const [url, setUrl] = useState("");
-  const [repo, setRepo] = useState(null);
-  const [error, setError] = useState("");
-  const [analysis, setAnalysis] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const githubLogoRef = useRef(null);
-
-
-  /*
-   * GITHUB LOGO SCROLL ROTATION
-   */
-
-  useEffect(() => {
-    let lastScrollY =
-      window.scrollY;
-
-    let rotation = 0;
-
-    function handleScroll() {
-      const currentScrollY =
-        window.scrollY;
-
-      const difference =
-        currentScrollY -
-        lastScrollY;
-
-      if (difference > 0) {
-        rotation +=
-          Math.min(
-            difference * 0.12,
-            12
-          );
-      } else if (difference < 0) {
-        rotation -=
-          Math.min(
-            Math.abs(difference) * 0.12,
-            12
-          );
-      }
-
-      if (githubLogoRef.current) {
-        githubLogoRef.current.style.transform =
-          `translate(-50%, -50%) rotate(${rotation}deg)`;
-      }
-
-      lastScrollY =
-        currentScrollY;
-    }
-
-    window.addEventListener(
-      "scroll",
-      handleScroll,
-      {
-        passive: true
-      }
-    );
-
-    return () => {
-      window.removeEventListener(
-        "scroll",
-        handleScroll
-      );
-    };
-  }, []);
-
-
-  /*
-   * ANALYZE REPOSITORY
-   */
 
   async function handleAnalyze() {
     setError("");
@@ -433,6 +384,7 @@ function App() {
         );
       }
 
+
       const parts =
         githubUrl.pathname
           .split("/")
@@ -441,11 +393,13 @@ function App() {
       const owner = parts[0];
       const repoName = parts[1];
 
+
       if (!owner || !repoName) {
         throw new Error(
           "Please enter a valid GitHub repository URL"
         );
       }
+
 
       const data =
         await getRepository(
@@ -453,21 +407,25 @@ function App() {
           repoName
         );
 
+
       const tree =
         await getRepositoryTree(
           owner,
           repoName
         );
 
+
       const filteredFiles =
         filterRepositoryTree(
           tree.tree
         );
 
+
       const importantFiles =
         selectImportantFiles(
           filteredFiles
         );
+
 
       const fileContents =
         await getMultipleFileContents(
@@ -476,14 +434,16 @@ function App() {
           importantFiles
         );
 
+
       const repositoryContext =
         buildRepositoryContext(
           fileContents
         );
 
+
       const aiResponse =
         await fetch(
-          "http://localhost:3001/api/analyze",
+          `${API_BASE_URL}/api/analyze`,
           {
             method: "POST",
 
@@ -498,8 +458,10 @@ function App() {
           }
         );
 
+
       const aiData =
         await aiResponse.json();
+
 
       if (!aiResponse.ok) {
         throw new Error(
@@ -508,9 +470,11 @@ function App() {
         );
       }
 
+
       setAnalysis(
         aiData.analysis
       );
+
 
       setRepo({
         ...data,
@@ -518,9 +482,11 @@ function App() {
         files: fileContents
       });
 
+
     } catch (err) {
       setError(
-        err.message
+        err.message ||
+          "Something went wrong"
       );
     } finally {
       setLoading(false);
@@ -538,68 +504,54 @@ function App() {
   }
 
 
-  function useExample(
-    exampleUrl
-  ) {
-    setUrl(exampleUrl);
-    setError("");
-  }
-
-
   return (
-    <div className="app">
-
-      {/* STATIC PARTICLES */}
+    <div
+      className="app"
+      style={{
+        "--cursor-x":
+          `${mousePosition.x}px`,
+        "--cursor-y":
+          `${mousePosition.y}px`
+      }}
+    >
 
       <ParticleField />
 
+      <div className="cursor-glow" />
 
-      {/* BACKGROUND GITHUB MARK */}
-
-      <div
-        ref={githubLogoRef}
-        className="github-background"
-        aria-hidden="true"
-      >
-        <svg
-          viewBox="0 0 98 96"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            fill="currentColor"
-            d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.943 40.22 33.28 46.754 2.427.46 3.31-1.056 3.31-2.34 0-1.151-.043-4.192-.065-8.225-13.53 2.979-16.4-6.559-16.4-6.559-2.207-5.658-5.395-7.167-5.395-7.167-4.414-3.032.334-2.97.334-2.97 4.89.35 7.463 5.093 7.463 5.093 4.339 7.52 11.379 5.348 14.152 4.089.434-3.18 1.699-5.348 3.088-6.57-10.795-1.245-22.15-5.488-22.15-24.397 0-5.39 1.89-9.792 4.993-13.248-.502-1.245-2.165-6.27.47-13.067 0 0 4.07-1.324 13.354 5.06 3.878-1.09 8.04-1.638 12.176-1.658 4.136.02 8.298.568 12.176 1.658 9.284-6.384 13.354-5.06 13.354-5.06 2.635 6.797.972 11.822.47 13.067 3.103 3.456 4.993 7.858 4.993 13.248 0 18.954-11.377 23.138-22.204 24.36 1.745 1.52 3.305 4.514 3.305 9.105 0 6.57-.06 11.86-.06 13.47 0 1.296.873 2.824 3.33 2.336C84.082 89.426 98 70.96 98 49.217 98 22 76.02 0 48.854 0Z"
-          />
-        </svg>
-      </div>
-
-
-      {/* SCROLL BAR */}
+      <div className="background-grid" />
 
       <div className="scroll-progress" />
-
 
 
       {/* HERO */}
 
       <header className="hero">
 
-        <div className="hero-brand">
-          RepoLens
+        <div className="hero-eyebrow">
+
+          <span className="eyebrow-line" />
+
+          DEVELOPER TOOL
+
+          <span className="eyebrow-line" />
+
         </div>
+
 
         <h1>
           Understand the codebase
-
           <span>
-            before you open it.
+            {" "}before you open it.
           </span>
         </h1>
 
+
         <p className="hero-description">
-          Analyze the structure,
-          technology, architecture
-          and key files of any public
-          GitHub repository.
+          RepoLens analyzes the structure,
+          technology, architecture and key
+          files of any public GitHub
+          repository.
         </p>
 
 
@@ -611,27 +563,22 @@ function App() {
               github.com/
             </div>
 
+
             <input
               type="text"
               placeholder="owner/repository"
               value={url}
-              onChange={(e) =>
-                setUrl(e.target.value)
+              onChange={(event) =>
+                setUrl(event.target.value)
               }
-              onKeyDown={
-                handleKeyDown
-              }
+              onKeyDown={handleKeyDown}
               disabled={loading}
             />
 
+
             <button
-              onClick={
-                handleAnalyze
-              }
-              disabled={
-                loading ||
-                !url.trim()
-              }
+              onClick={handleAnalyze}
+              disabled={loading}
             >
 
               {loading ? (
@@ -642,7 +589,6 @@ function App() {
               ) : (
                 <>
                   Analyze
-
                   <span className="button-arrow">
                     →
                   </span>
@@ -656,45 +602,6 @@ function App() {
 
           <div className="search-hint">
             Press Enter to analyze
-          </div>
-
-
-          <div className="examples">
-
-            <span>
-              Try
-            </span>
-
-            <button
-              onClick={() =>
-                useExample(
-                  "https://github.com/facebook/react"
-                )
-              }
-            >
-              facebook/react
-            </button>
-
-            <button
-              onClick={() =>
-                useExample(
-                  "https://github.com/vercel/next.js"
-                )
-              }
-            >
-              vercel/next.js
-            </button>
-
-            <button
-              onClick={() =>
-                useExample(
-                  "https://github.com/expressjs/express"
-                )
-              }
-            >
-              expressjs/express
-            </button>
-
           </div>
 
         </div>
@@ -747,6 +654,7 @@ function App() {
                     ?.charAt(0)
                     .toUpperCase()}
                 </div>
+
 
                 <div>
 
@@ -838,11 +746,13 @@ function App() {
               <div className="stat">
 
                 <span className="stat-value">
+
                   {repo.size
                     ? `${(
                         repo.size / 1024
                       ).toFixed(1)} MB`
                     : "—"}
+
                 </span>
 
                 <span className="stat-label">
@@ -862,6 +772,7 @@ function App() {
       {/* ANALYSIS */}
 
       {analysis && (
+
         <main className="analysis">
 
           <Reveal className="analysis-heading">
@@ -877,6 +788,7 @@ function App() {
               </h2>
 
             </div>
+
 
             <div className="analysis-status">
 
@@ -898,6 +810,7 @@ function App() {
               <div className="block-number">
                 01
               </div>
+
 
               <div className="block-content">
 
@@ -932,6 +845,7 @@ function App() {
                   02
                 </div>
 
+
                 <div className="block-content">
 
                   <div className="block-label">
@@ -942,10 +856,14 @@ function App() {
                     Built with
                   </h3>
 
+
                   <div className="tech-list">
 
                     {analysis.techStack.map(
-                      (technology, index) => (
+                      (
+                        technology,
+                        index
+                      ) => (
                         <span
                           className="tech-tag"
                           key={index}
@@ -968,6 +886,7 @@ function App() {
                   03
                 </div>
 
+
                 <div className="block-content">
 
                   <div className="block-label">
@@ -977,6 +896,7 @@ function App() {
                   <h3>
                     Entry point
                   </h3>
+
 
                   <div className="entry-point">
 
@@ -1006,6 +926,7 @@ function App() {
               <div className="block-number">
                 04
               </div>
+
 
               <div className="block-content">
 
@@ -1038,6 +959,7 @@ function App() {
                 05
               </div>
 
+
               <div className="block-content">
 
                 <div className="block-label">
@@ -1048,20 +970,28 @@ function App() {
                   Important files
                 </h3>
 
+
                 <div className="file-list">
 
                   {analysis.importantFiles.map(
-                    (file, index) => (
+                    (
+                      file,
+                      index
+                    ) => (
+
                       <div
                         className="file-item"
                         key={index}
                       >
 
                         <div className="file-index">
+
                           {String(
                             index + 1
                           ).padStart(2, "0")}
+
                         </div>
+
 
                         <div className="file-info">
 
@@ -1075,11 +1005,13 @@ function App() {
 
                         </div>
 
+
                         <span className="file-arrow">
                           →
                         </span>
 
                       </div>
+
                     )
                   )}
 
@@ -1102,6 +1034,7 @@ function App() {
                 06
               </div>
 
+
               <div className="block-content">
 
                 <div className="block-label">
@@ -1112,10 +1045,15 @@ function App() {
                   Recommended improvements
                 </h3>
 
+
                 <div className="improvements-list">
 
                   {analysis.improvements.map(
-                    (improvement, index) => (
+                    (
+                      improvement,
+                      index
+                    ) => (
+
                       <div
                         className="improvement"
                         key={index}
@@ -1132,6 +1070,7 @@ function App() {
                         </p>
 
                       </div>
+
                     )
                   )}
 
@@ -1157,6 +1096,7 @@ function App() {
           </footer>
 
         </main>
+
       )}
 
     </div>
