@@ -1,16 +1,61 @@
-# React + Vite
+# RepoLens
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Understand a GitHub codebase before you open it.
 
-Currently, two official plugins are available:
+RepoLens is an AI-powered developer tool that analyzes public GitHub repositories and generates a structured overview of the codebase.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Instead of manually opening dozens of files to understand an unfamiliar project, RepoLens identifies the repository's technology stack, architecture, entry point, important files, and practical improvement opportunities.
 
-## React Compiler
+## Live Demo
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+https://repolens-delta-six.vercel.app
 
-## Expanding the ESLint configuration
+## GitHub Repository
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+https://github.com/gauravu82274927/Repolens
+
+---
+
+## What RepoLens Does
+
+Give RepoLens a public GitHub repository URL and it analyzes the codebase to provide:
+
+- Project summary
+- Technology stack
+- Architecture overview
+- Application entry point
+- Important files with explanations
+- Practical improvement suggestions
+- Repository metadata and statistics
+
+The goal is to make the first few minutes of exploring an unfamiliar codebase much faster.
+
+---
+
+## How It Works
+
+```text
+GitHub Repository URL
+        |
+        v
+   RepoLens Frontend
+        |
+        v
+    Node.js API
+        |
+        +------------------+
+        |                  |
+        v                  v
+   GitHub API          Repository
+                         Analysis
+        |                  |
+        +--------+---------+
+                 |
+                 v
+           Gemini AI
+                 |
+                 v
+        Structured Analysis
+                 |
+                 v
+          RepoLens UI
